@@ -157,7 +157,7 @@ async function loadConversation(thread_id) {
             const list = await resp.json(); // Parse JSON response
             showConversation(list); // Display conversation
             currentThread = thread_id; // Update current chat ID
-            setAssistant (currentAssistant);
+            setAssistant (currentAssistant, false);
             $('.chat-messages').animate({ scrollTop: $('.chat-messages').prop('scrollHeight') }, 300); // Auto-scroll
         } else {
             showFailureNotice(`Conversation failed to load: ${resp.statusText}`); // Show error message
@@ -286,6 +286,10 @@ async function showConversation(items) {
         }
 
         if (item.role === "info") {
+            const run = item.run;
+            if ('object' === typeof(run) && Array.isArray(run.tools)) {
+                setFunctions(run.tools);
+            }
             continue;
         }
 
@@ -510,7 +514,16 @@ function readMessage(input) {
     } else if ('function_response' === kind) {
         addMessageToUI(obj.message_id, 'Function', '**Result:**\n```\n'+text+'\n```', assistant_id)
     } else if ('authentication' === kind) {
-        // TODO: tool authentication needed, see v1
+        toolsAuth = obj.data;
+        $('#tool-auth-text').text(`Authorization required for "${toolsAuth.authOpts?.appName}" access`);
+        if (-1 == toolsAuth.authOpts?.authType.indexOf('OAuth2') || !toolsAuth.authOpts?.auth_url) {
+            $('#auth-api-type').prop('checked',true);
+            $('#auth-api-key-inp').show();
+        } else {
+            $('#auth-api-type').prop('checked',false);
+            $('#auth-api-key-inp').hide();
+        }
+        $('#auth-modal').modal('show');
     } else if ('info' === kind) {
         if (obj.data.run_id) {
             currentRunId = obj.data.run_id;
@@ -1011,7 +1024,7 @@ async function getVectorStoreFiles(id) {
     }).then((data) => {
         return data;
     }).catch((e) => {
-        showFailureNotice('Loading messages failed: ' + e);
+        showFailureNotice('Loading vector stores failed: ' + e);
     });
     $('.loader').hide(); // Hide loader
     return fs;
@@ -1024,13 +1037,17 @@ async function getVectorStore(id) {
     if (!id) {
         return undefined;
     }
+    let vs = vectorStoresCache.find(store => store.id === id);
+    if (typeof(vs) === 'object') {
+        return vs;
+    }
     let url = new URL('/chat/api/vector_stores', httpBase);
     let params = new URLSearchParams(url.search);
     params.append('vector_store_id', id);
     params.append('apiKey', apiKey ? apiKey : '');
     url.search = params.toString();
     $('.loader').show(); // Show loader
-    const vs = await authClient.fetch (url.toString()).then((r) => {
+    vs = await authClient.fetch (url.toString()).then((r) => {
         if (!r.ok) {
             return r.json().then(e => {
                 throw new Error(`${e.error}: ${e.message}`);
@@ -1039,6 +1056,7 @@ async function getVectorStore(id) {
         }
         return r.json();
     }).then((data) => {
+        vectorStoresCache.push(data);
         return data;
     }).catch((e) => {
         showFailureNotice('Loading messages failed: ' + e);
@@ -1144,7 +1162,7 @@ async function loadAssistants(assistant_id = null) {
  * 
  * @param {string} assistant_id - The ID of the assistant to set.
  */
-async function setAssistant(assistant_id) {
+async function setAssistant(assistant_id, initFunctionsList = true) {
     let item = assistants.find(obj => obj.id === assistant_id);
     if (!item) {
         return;
@@ -1165,7 +1183,9 @@ async function setAssistant(assistant_id) {
     $(".assistants-dropdown-menu").hide();
 
     setParameters(item);
-    setFunctions(item.tools);
+    if (initFunctionsList) {
+        setFunctions(item.tools);
+    }
     setModel(item.model);
     const $fs = $('#file-search');
     const $vs = $('.vector-store');

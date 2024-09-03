@@ -329,7 +329,7 @@ input:checked + .slider:before {
     margin-bottom: 5px; /* Add margin to separate the elements */
 }
 
-.form-control {
+.params {
     width: 50px;
     text-align: center;
     padding: 5px;

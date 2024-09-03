@@ -1039,3 +1039,19 @@ div.nano_start, div.nano_end {
 .user-img-zoom-in , .user-img-zoom-out {
     float: right;
 }
+
+.assistants-suggestions-dropdown .assistants-suggestions-item.selected {
+    background-color: #e0e0e0;
+}
+
+#assistant-id {
+  position: absolute;
+  padding: 0 10px 0 5px;
+  top: 23px;
+  left: 10px;
+  border-radius: 10px;
+  font-size: 90%;
+  background-color: #199ddb;
+  color: white;
+  display: none;
+}

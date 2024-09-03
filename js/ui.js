@@ -499,12 +499,44 @@ function initShareSessionReplaySpeed() {
     });
 }
 
+function selectSuggestion(direction) {
+    var $suggestions = $('.assistants-suggestions-dropdown');
+    let $options = $suggestions.find('.assistants-suggestions-item');
+    let $selected = $options.filter('.selected');
+    let index = $options.index($selected);
+
+
+    if (40 == direction) {
+        index = (index + 1) % $options.length;
+    } else if (38 == direction) {
+        index = (index - 1 + $options.length) % $options.length;
+    }
+    $options.removeClass('selected');
+    $options.eq(index).addClass('selected');
+
+    let selectedOption = $options.eq(index)[0];
+    let popupHeight = $suggestions.height();
+    let popupScrollTop = $suggestions.scrollTop();
+    let optionTop = selectedOption.offsetTop;
+    let optionHeight = selectedOption.offsetHeight;
+
+    if (optionTop < popupScrollTop) {
+        $suggestions.scrollTop(optionTop);
+    } else if (optionTop + optionHeight > popupScrollTop + popupHeight) {
+        $suggestions.scrollTop(optionTop + optionHeight - popupHeight);
+    }
+}
+
 /**
  * Initializes the assistant suggestions dropdown.
  */
 function initAssistantSuggestions() {
     var $suggestions = $('.assistants-suggestions-dropdown');
     $('#user-input').on('keyup', function(e) {
+        if ($suggestions.is(':visible') && (38 == e.keyCode || 40 == e.keyCode || 13 == e.keyCode || 27 == e.keyCode)) {
+            e.preventDefault();
+            return;
+        }
         let $mentionInput = $('#user-input');
         let text = this.value.trim();
         if (text.split(/\s+/).length === 1 && text.match(/^@\w*$/)) {
@@ -518,6 +550,7 @@ function initAssistantSuggestions() {
                     return `<div class="assistants-suggestions-item" data-assist-id="${item.id}">${item.name}</div>`;
                 }).join('');
                 $suggestions.html(suggestionsHtml).show();
+                $suggestions.children('.assistants-suggestions-item').first().addClass('selected');
                 $suggestions.css({
                                  bottom: $mentionInput.position().top + $mentionInput.outerHeight() + 30,
                                  left: $mentionInput.position().left + 10
@@ -528,6 +561,10 @@ function initAssistantSuggestions() {
         } else {
             $suggestions.hide();
         }
+        if (0 === text.length && 8 === e.keyCode) {
+            $('#assistant-id').text('').hide();
+            $mentionInput.css('text-indent', 0);
+        }
     });
 
     $suggestions.on('click', '.assistants-suggestions-item', function() {
@@ -535,13 +572,37 @@ function initAssistantSuggestions() {
         let selectedAssistant = $(this).text();
         let text = $mentionInput.val();
         let caretPos = $mentionInput[0].selectionStart;
-        let beforeCaret = text.substring(0, caretPos).replace(/@\w*$/, '@[' + selectedAssistant + '] ');
+        let beforeCaret = text.substring(0, caretPos).replace(/@\w*$/, '@' + selectedAssistant + ' ');
         let afterCaret = text.substring(caretPos);
         setAssistant($(this).attr('data-assist-id'));
-        $mentionInput.val(beforeCaret + afterCaret);
+        $mentionInput.val(afterCaret);
+        $('#assistant-id').text(beforeCaret).show();
+        $mentionInput.css('text-indent', Math.round($('#assistant-id').width()) + 10);
         $mentionInput.focus();
         $suggestions.hide();
     });
+
+    $('#user-input').keypress(async function (e) {
+        if ($suggestions.is(':visible') && (38 == e.keyCode || 40 == e.keyCode || 13 == e.keyCode || 27 == e.keyCode)) {
+            e.preventDefault();
+            return;
+        }
+    });
+
+    $('#user-input').on('keydown', function(e) {
+        if ($suggestions.is(':visible')) {
+            if (38 == e.keyCode || 40 == e.keyCode) {
+                selectSuggestion(e.keyCode);
+                e.preventDefault();
+            } else if (13 == e.keyCode) {
+                $('.assistants-suggestions-dropdown .assistants-suggestions-item.selected').trigger('click');
+                e.preventDefault();
+            } else if (27 == e.keyCode) {
+                $suggestions.hide();
+            }
+        }
+    });
+
 }
 
 /**

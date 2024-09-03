@@ -179,3 +179,73 @@ function checkApiKey() {
     }
     return true;
 }
+
+function initAuthDialog() {
+    $('#auth-api-type').on('click', function(e) {
+        const is_api_key = $('#auth-api-type').is(':checked');
+        if (!is_api_key) {
+            $('#auth-api-key-inp').hide();
+        } else {
+            $('#auth-api-key-inp').show();
+        }
+    });
+
+    $('#btn-auth-key-set').click(function() {
+        const key =  $('#auth-key').val();
+        const use_api_key = $('#auth-api-type').is(':checked');
+
+        if (!use_api_key && !key.length && toolsAuth?.authOpts?.client_id) {
+            let client_id = toolsAuth.authOpts.client_id;
+            let url = new URL(toolsAuth.authOpts.auth_url);
+            let redirect = new URL('/chat/api/callback', httpBase);
+            let params = new URLSearchParams();
+
+            params.append('app_id', toolsAuth.authOpts.appName);
+            params.append('key_id', 'auth-key');
+            params.append('event_id', 'btn-auth-key-set');
+            redirect.search = params.toString();
+
+            params.delete('app_id');
+            params.append('client_id', client_id);
+            params.append('redirect_uri', redirect.toString());
+            params.append('response_type', 'code');
+            params.append('scope', 'offline_access webid');
+            url.search = params.toString();
+            let w = window.open(url.toString(), "Authenticate", "width=800, height=600, scrollbars=no");
+            $('#btn-auth-key-set').text('Authorize');
+            return;
+        }
+
+        if (!key.length || undefined === toolsAuth) {
+            return;
+        }
+
+        const request = {
+            type: 'authToken',
+            action: 'register',
+            run_id: toolsAuth.run_id,
+            thread_id: toolsAuth.thread_id,
+            appName: toolsAuth.authOpts?.appName,
+            function_name: toolsAuth.function_name,
+            authTokenType: 'Bearer',
+            authToken: key,
+        };
+        webSocket.send(JSON.stringify(request));
+        toolsAuth = undefined;
+        authToken: $('#auth-key').val('');
+        $('#auth-modal').modal('hide');
+    });
+
+    $('#auth-modal').on("hidden.bs.modal",function() {
+        if (undefined != toolsAuth) {
+            const request = {
+                type: 'authToken',
+                action: 'cancel',
+                run_id: toolsAuth.run_id,
+                thread_id: toolsAuth.thread_id,
+            };
+            webSocket.send(JSON.stringify(request));
+            toolsAuth = undefined;
+        }
+    });
+}

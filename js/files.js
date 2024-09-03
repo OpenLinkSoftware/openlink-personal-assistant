@@ -330,7 +330,7 @@ async function showVectorStoreFiles() {
     $('#vs-files tbody').empty();
     if (vs_id.length) {
         const files = await getVectorStoreFiles(vs_id);
-        files.data?.forEach(file => {
+        files?.data?.forEach(file => {
             addVectorStoreItem({id: file.id, bytes: file.usage_bytes});
         });
     }

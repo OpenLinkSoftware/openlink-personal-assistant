@@ -51,6 +51,8 @@ var models = [];
 var availableFunctions = [];
 var vectorStores = null;
 var fileSearch = false;
+var toolsAuth = undefined;
+var vectorStoresCache = [];
 
 // DOMContentLoaded Event Listener
 document.addEventListener("DOMContentLoaded", function() {
@@ -62,5 +64,12 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // Initialization of Authentication Event Handlers
     initAuthentication();
+    initAuthDialog();
     $('#vad_version').html(vadVersion);
+    
+    $(document).on('keydown', function(e) {
+        if (e.keyCode === 27) {
+            $('.modal').hide();
+        }
+    });
 });
