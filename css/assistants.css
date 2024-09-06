@@ -449,3 +449,47 @@ input:checked + .slider:before {
     cursor: pointer;
     margin: 0 5px;
 }
+
+/* 
+ * Spinner
+ */
+
+.spinner {
+  position: absolute;
+  width: 100%;
+  left: 0;
+  right: 0;
+  top: 100px;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.7);
+  z-index: 9999;
+  display: none;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner::after {
+  content: '';
+  display: block;
+  position: absolute;
+  left: 48%;
+  top: 40%;
+  width: 30px;
+  height: 30px;
+  border-style: solid;
+  border-color: black;
+  border-top-color: transparent;
+  border-width: 4px;
+  border-radius: 50%;
+  -webkit-animation: spin .8s linear infinite;
+  animation: spin .8s linear infinite;
+}
+

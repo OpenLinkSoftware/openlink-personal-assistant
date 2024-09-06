@@ -72,4 +72,5 @@ document.addEventListener("DOMContentLoaded", function() {
             $('.modal').hide();
         }
     });
+    $('[data-toggle="tooltip"]').tooltip({container: 'body'});
 });

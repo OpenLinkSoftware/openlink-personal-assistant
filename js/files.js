@@ -300,13 +300,14 @@ async function handleVectorStoreFile(files) {
         }
 
         $('.loader').show();
-
         // Create a URL for the file and fetch its blob data
         const imgURL = URL.createObjectURL(file);
         const r = await fetch(imgURL);
         const blob = await r.blob();
         // Store the file on the server
+        $('#vs-spinner').show();
         const file_id = await storeFile(null, file.name, file.type && file.type != '' ? file.type : fileType.mime, blob);
+        $('#vs-spinner').hide();
         vsFiles.push(file_id);
 
         // Create a file object and add it to the selected files list
@@ -329,7 +330,9 @@ async function showVectorStoreFiles() {
     const vs_id = $('#vs_id').val();
     $('#vs-files tbody').empty();
     if (vs_id.length) {
+        $('#vs-spinner').show();
         const files = await getVectorStoreFiles(vs_id);
+        $('#vs-spinner').hide();
         files?.data?.forEach(file => {
             addVectorStoreItem({id: file.id, bytes: file.usage_bytes});
         });
@@ -395,7 +398,9 @@ async function handleFileInput(files) {
         const r = await fetch(imgURL);
         const blob = await r.blob();
         // Store the file on the server
+        $('#fs-spinner').show();
         const file_id = await storeFile(currentThread, file.name, file.type && file.type != '' ? file.type : fileType.mime, blob);
+        $('#fs-spinner').hide();
 
         // Create a file object and add it to the selected files list
         const fileObj = {

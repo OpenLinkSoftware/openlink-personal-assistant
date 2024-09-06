@@ -410,7 +410,7 @@ body {
   position: absolute;
   top: 40px;
   width: 100%; /* Ensure the dropdown menu matches the button's width */
-  min-width: 200px;
+  min-width: 300px;
   max-height: 50vh;
   border: 1px solid var(--border-color);
   border-radius: 10px;
@@ -433,6 +433,10 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
   position: relative; /* Ensure positioning context for the more button */
+}
+
+.threads-dropdown-item-edit {
+    width: 100%;
 }
 
 .threads-dropdown-item .threads-dropdown-item-more-button {
@@ -811,7 +815,7 @@ div.nano_start, div.nano_end {
   border-radius: 10px;
   padding: 16px;
   position: absolute;
-  z-index: 1000;
+  z-index: 9999;
   left: 50%;
   transform: translateX(-50%);
   top: 10px;

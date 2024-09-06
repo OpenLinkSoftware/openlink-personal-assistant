@@ -154,6 +154,10 @@ async function updateLoginState() {
                 showFailureNotice("Session has expired. You will need to re-authenticate in order to continue.")
             }, chatSessionTimeoutMsec);
         }
+    } else {
+        if (sharedSession) {
+            $('.assistant-configuration').hide();
+        }
     }
 }
 
