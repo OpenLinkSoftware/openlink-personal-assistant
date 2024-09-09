@@ -18,3 +18,7 @@ The client UI is implemented using the following components:
 
 Simply place the SPA (HTML, CSS, and JavaScript) in the Virtuoso WebDAV (or Briefcase) folder of an instance where the OPAL server components have been installed, open it up in your browser, and start a conversation with the preconfigured Assistants or create a new one for your specific needs.
 
+## Live Instances
+
+1. [URIBurner Service](https://linkeddata.uriburner.com/assist-metal)
+
