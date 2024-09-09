@@ -1,5 +1,3 @@
-Here’s the proofread version:
-
 # OpenLink Personal Assistant Skin (Metal)
 
 This is a user interface layer for the OpenLink AI Layer (OPAL), bound to its Assistants Endpoint—i.e., the binding layer for interacting with Assistant Services provided by OpenAI and other Large Language Model (LLM) providers.
