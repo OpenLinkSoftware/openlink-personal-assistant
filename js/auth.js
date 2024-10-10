@@ -49,6 +49,7 @@ function initAuthentication() {
         webSocket.onclose = onClose;
         $('#user-input-textbox').show();
         $('.reconnect-button-group').hide();
+        loadConversation(currentThread);
     });
 }
 
@@ -108,6 +109,14 @@ async function chatAuthenticate() {
     }
 }
 
+async function fillIdps() {
+    const url = new URL('/chat/api/auth_idps', httpBase);
+    IdPs = await authClient.fetch(url.toString()).then(r => { return r.json() }).catch(() => { return [] });
+    let $sel = $('#auth-idp');
+    IdPs.forEach(function(idp) {
+        $sel.append(`<option id="idp-${idp.name}">${idp.name}</option>`);
+    });
+}
 /**
  * Updates the login state of the application.
  */
@@ -154,6 +163,7 @@ async function updateLoginState() {
                 showFailureNotice("Session has expired. You will need to re-authenticate in order to continue.")
             }, chatSessionTimeoutMsec);
         }
+        fillIdps();
     } else {
         if (sharedSession) {
             $('.assistant-configuration').hide();
@@ -197,10 +207,17 @@ function initAuthDialog() {
     $('#btn-auth-key-set').click(function() {
         const key =  $('#auth-key').val();
         const use_api_key = $('#auth-api-type').is(':checked');
+        let client_id = toolsAuth.authOpts?.client_id;
+        let auth_url = toolsAuth.authOpts?.auth_url;
+        if (!client_id) {
+            const IdP_id = $('#auth-idp').val();
+            const IdP = IdPs.find(item => item.name === IdP_id);
+            client_id = IdP?.client_id;
+            auth_url = IdP?.auth_url;
+        }
 
-        if (!use_api_key && !key.length && toolsAuth?.authOpts?.client_id) {
-            let client_id = toolsAuth.authOpts.client_id;
-            let url = new URL(toolsAuth.authOpts.auth_url);
+        if (!use_api_key && !key.length && client_id && auth_url) {
+            let url = new URL(auth_url);
             let redirect = new URL('/chat/api/callback', httpBase);
             let params = new URLSearchParams();
 
@@ -209,7 +226,7 @@ function initAuthDialog() {
             params.append('event_id', 'btn-auth-key-set');
             redirect.search = params.toString();
 
-            params.delete('app_id');
+            params = new URLSearchParams();
             params.append('client_id', client_id);
             params.append('redirect_uri', redirect.toString());
             params.append('response_type', 'code');

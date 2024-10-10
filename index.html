@@ -170,20 +170,20 @@
                             <input type="checkbox" id="enable_audio" class="form-check-input">
                         </div>
                         <div class="field enable-debug-field" id="enable-debug-field">
-                            <label for="enable_debug" data-toggle="tooltip" data-bs-placement="top" class="field-label" id="debug-field-label" title="Enable debug for the session.">
+                            <label for="enable_debug" data-toggle="tooltip" data-bs-placement="top" class="field-label" id="debug-field-label" title="Enable debug of function tools for the session.">
                                 Enable Debug
                             </label>
                             <input type="checkbox" id="enable_debug" class="form-check-input">
                         </div>
-                        <div class="field" id="animation-speed-field">
+                        <!--<div class="field" id="animation-speed-field">
                             <label for="animation_speed_in" data-toggle="tooltip" data-bs-placement="top" class="field-label" 
-                                title="Animation speed for session replay.">
+                                title="Animation speed for session replay upon load from storage.">
                                 Animation Speed
                             </label>
-                        </div>
+                        </div> 
                         <div class="field">
                             <input type="range" class="form-range" id="animation_speed_in" min="0" step="10" max="500" value="0">
-                        </div> 
+                        </div> -->
                     </div>
             
                     <!-- <div class="api-version-section">
@@ -199,10 +199,10 @@
                         <button class="assistant-btn" id="delete-assistant">
                             <img src="svg/trash.svg" alt="Trash Icon" class="assistant-icon trash">
                         </button>
-                        <button class="assistant-btn" id="clone-assistant-button">
+                        <!--button class="assistant-btn" id="clone-assistant-button">
                             <img src="svg/clipboard.svg" alt="Copy Icon" class="assistant-icon copy">
                             Clone
-                        </button>
+                        </button-->
                     </div>
                 </div>
             </div>
@@ -230,6 +230,7 @@
                     </div>                      
                     <div class="chat-window-buttons">
                         <!-- <button class="icon-button" title="About"><img src="svg/book.svg" alt="About"></button> -->
+                        <input type="text" class="field-input search-input" />
                         <button class="icon-button" title="Share"><img src="svg/export.svg" alt="Share"></button>
                         <button class="icon-button" id="import-thread-button" title="Import Thread"><img src="svg/import.svg" alt="Import Thread"></button>
                         <button class="icon-button api-key" title="Api Key"><img src="svg/vertical-key.svg" alt="Api Key"></button>
@@ -247,14 +248,15 @@
             <div class="user-input-wrapper">
                 <div class="continue-button-group">
                     <button id="continue-button" class="button continue-button">Resume Chat</button>
+                    <button id="continue-cancel-button" class="button continue-cancel-button d-none">Cancel</button>
                 </div>
                 <div class="reconnect-button-group">
                     <button id="reconnect-button" class="button reconnect-button">Reconnect</button>
                 </div>
+                <div class="loader"></div>  
                 <div class="textbox-container" id="user-input-textbox">
                     <input type="file" style="display:none;" multiple="" id="fs-upload">
                     <div class="assistants-suggestions-dropdown hidden"></div>
-                    <div class="loader"></div>  
                     <div class="uploaded-files-container"></div>
                     <div class="user-input-container">
                         <label id="assistant-id"></label>
@@ -366,6 +368,22 @@
             </div>
         </div>
 
+        <div class="modal" tabindex="-1" role="dialog" id="upload-status">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Thread log is uploaded:</h5>
+                    </div>
+                    <div class="modal-body">
+                        <a id="upload-location" target="_blank"></a>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="button" data-bs-dismiss="modal" id="upload-status-btn">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div id="import-thread-modal" class="modal">
             <div class="modal-content">
                 <span class="close">&times;</span>
@@ -445,7 +463,7 @@
                         <thead>
                             <tr>
                                 <th>File</th>
-                                <th>Size</th>
+                                <th><label data-toggle="tooltip" data-bs-placement="left" title="The vector store usage in bytes. Note that this may be different than the original file size.">Space</label></th>
                                 <th></th>
                             </tr>
                         </thead>
@@ -471,6 +489,11 @@
                             <div class="form-check form-switch" id="oauth-sw">
                                 <input type="checkbox" id="auth-api-type" class="form-check-input">
                                 <label class="form-check-label" for="auth-api-type">Use API Key</label>
+                            </div>
+
+                            <div id="auth-idp-inp">
+                                <label for="auth-idp" class="form-label">IdP</label>
+                                <select id="auth-idp" class="form-control"></select>
                             </div>
 
                             <div id="auth-api-key-inp">

@@ -141,7 +141,6 @@ async function checkResumeThread() {
  * @param {string} thread_id - The ID of the chat to load.
  */
 async function loadConversation(thread_id) {
-    $('.loader').css('display', 'block'); // Show loader
     if (!checkApiKey()) return; // Check if API key is valid
     if (!thread_id) return; // No thread yet XXX: make new?
 
@@ -151,6 +150,7 @@ async function loadConversation(thread_id) {
     params.append('apiKey', apiKey ? apiKey : '');
     url.search = params.toString();
 
+    $('.loader').css('display', 'block'); // Show loader
     try {
         const resp = await authClient.fetch(url.toString()); // Fetch conversation data
         if (resp.ok) {
@@ -158,6 +158,11 @@ async function loadConversation(thread_id) {
             showConversation(list); // Display conversation
             currentThread = thread_id; // Update current chat ID
             setAssistant (currentAssistant, false);
+            // If messages are loaded from storage and user click on a thread drop-down, now we show a thread and must show text input
+            if (!$('#user-input-textbox').is(':visible')) {
+                $('#user-input-textbox').show();
+                $('.continue-button-group').hide();
+            }
             $('.chat-messages').animate({ scrollTop: $('.chat-messages').prop('scrollHeight') }, 300); // Auto-scroll
         } else {
             showFailureNotice(`Conversation failed to load: ${resp.statusText}`); // Show error message
@@ -178,11 +183,13 @@ async function loadConversation(thread_id) {
  * @returns {jQuery} - The jQuery object containing the constructed message HTML.
  */
 function createMessageHTML(text, role, message_id, assistant_id = null) {
+    const codeBlockPattern = /^(?:\s*(?:(?!`).)*?)```([\s\S]*?)```/gm;
     const assistant_name = getAssistantName(assistant_id);
-    const formattedText = md.render(text); // Convert markdown to HTML
+    const formattedText = role != 'user' || codeBlockPattern.test(text) ? 
+        md.render(text||'') : `<pre>${text}</pre>`; // Convert markdown to HTML
     const sender = assistant_name != null ? assistant_name : role;
-    let cls = 'Function' === role ? 'funciton-debug' : '', hide = '';
-    if ('Function' === role && !$('#enable_debug').is(':checked')) {
+    let cls = 'Function' === role ? 'funciton-debug' : '', hide = '', anon = loggedIn ? '' : 'd-none';
+    if ('Function' === role && !enableDebug) {
         hide = 'd-none';
     }
 
@@ -193,9 +200,9 @@ function createMessageHTML(text, role, message_id, assistant_id = null) {
     const $messageHeader = $('<div>', { class: 'message-header' })
         .append($('<p>', { class: `message-sender ${role}`, text: sender.replace(/^\w/, c => c.toUpperCase()) }))
         .append($('<div>', { class: 'message-icons' })
-            .append($('<img>', { src: 'svg/link-2.svg', alt: 'Permalink', class: `message-permalink icon ${hide}` }))
+            .append($('<img>', { src: 'svg/link-2.svg', alt: 'Permalink', class: `message-permalink icon ${hide} ${anon}` }))
             .append($('<img>', { src: 'svg/clipboard.svg', alt: 'Copy', class: 'message-copy icon' }))
-            .append($('<img>', { src: 'svg/trash.svg', alt: 'Delete', class: `message-delete icon ${hide}` }))
+            .append($('<img>', { src: 'svg/trash.svg', alt: 'Delete', class: `message-delete icon ${hide} ${anon}` }))
         );
 
     // Create message body
@@ -264,6 +271,34 @@ function createFileHTML(message_id, name, role, dataUrl = null) {
     return $messageContainer;
 }
 
+async function resolveFileUrl(file_id) {
+  const obj = await resolveFileObject(file_id);
+  return obj.url;
+}
+
+async function resolveFileName(file_id) {
+  const obj = await resolveFileObject(file_id);
+  return obj.filename;
+}
+
+async function resolveFileObject(file_id) {
+    let url = new URL('/chat/api/files', httpBase);
+    let params = new URLSearchParams(url.search);
+    params.append('file_id', file_id);
+    params.append('apiKey', apiKey || '');
+    url.search = params.toString();
+    let obj = await authClient.fetch(url.toString(), { method:'GET', headers: { 'Accept': 'application/json' } })
+    .then((res) => {
+        if (!res.ok) {
+            throw new Error(res.statusText);
+        }
+        return res.json();
+    }).catch(() => {
+        return null;
+    });
+  return obj;
+}
+
 /**
  * Displays a conversation from a list of message items.
  * 
@@ -298,6 +333,11 @@ async function showConversation(items) {
             let message_id = item.id;
             let name = item.name;
             let dataUrl = item.dataUrl
+            if (item.file_id) {
+                const obj = await resolveFileObject(item.file_id);
+                dataUrl = obj.url || dataUrl;
+                name = obj.filename || name;
+            }
             const $messageContainer = createFileHTML(message_id, name, role, dataUrl); // Create message HTML
             $chatMessages.append($messageContainer); // Append message to chat
         }
@@ -306,8 +346,12 @@ async function showConversation(items) {
             let role = item.role;
             let message_id = item.id;
             let name = item.name;
-            let dataUrl = item.dataUrl
-            const $messageContainer = createFileHTML(message_id, name, role, dataUrl); // Create message HTML
+            let dataUrl = item.dataUrl;
+            let file_id = item.file_id;
+            if (file_id && !dataUrl) {
+                dataUrl = await resolveFileUrl(file_id);
+            }
+            const $messageContainer = createFileHTML(message_id, name, role, dataUrl || 'svg/file-earmark-x.svg'); // Create message HTML
             $chatMessages.append($messageContainer); // Append message to chat
         }
 
@@ -375,7 +419,6 @@ function addFileToUI(message_id, name, role, dataUrl = null) {
  * Handles user input, sends it to the server, and updates the UI.
  */
 async function handleUserInput() {
-    $('.loader').show();// Show loader
     if (!checkApiKey()) return; // Check if API key is valid
 
     const $textarea = $('#user-input');
@@ -392,14 +435,12 @@ async function handleUserInput() {
 
     if (currentModel == undefined) {
         addMessageToUI(message_id, 'Assistant', "Cannot send message without model selected");
-        $('.loader').hide();
         // Show error if no model is selected
         return;
     }
 
     if (currentAssistant == undefined) {
         addMessageToUI(message_id, 'Assistant', "Cannot send message without assistant selected");
-        $('.loader').hide();
         // Show error if no assistant is selected
         return;
     }
@@ -408,7 +449,7 @@ async function handleUserInput() {
     sendMessage(message_id, text); // Send the message
 
     // Display the user's message in the chat window
-    addMessageToUI(message_id, 'User', text); // Add user's message to UI
+    addMessageToUI(message_id, 'user', text); // Add user's message to UI
 
     // Add file
     selectedFiles.forEach(fileObj => {
@@ -516,12 +557,15 @@ function readMessage(input) {
     } else if ('authentication' === kind) {
         toolsAuth = obj.data;
         $('#tool-auth-text').text(`Authorization required for "${toolsAuth.authOpts?.appName}" access`);
-        if (-1 == toolsAuth.authOpts?.authType.indexOf('OAuth2') || !toolsAuth.authOpts?.auth_url) {
+        if (-1 == toolsAuth.authOpts?.authType.indexOf('OAuth2')) {
             $('#auth-api-type').prop('checked',true);
             $('#auth-api-key-inp').show();
+            $('#auth-idp-inp').hide();
         } else {
             $('#auth-api-type').prop('checked',false);
             $('#auth-api-key-inp').hide();
+            $('#auth-idp-inp').show();
+            $('#auth-idp').val(toolsAuth.authOpts?.appName);
         }
         $('#auth-modal').modal('show');
     } else if ('info' === kind) {
@@ -542,12 +586,14 @@ function readMessage(input) {
     } else {
         lastReadMessageId = obj.message_id;
         accumulatedMessage += text;
-        accumulatedMessage = accumulatedMessage.replace(/【[0-9:]+†[\w+\.-]+】/g, '');
         if (!receivingMessage) {
             let $container = addMessageToUI(obj.message_id, 'Assistant', accumulatedMessage, assistant_id);
             receivingMessage = $container.find('.message-body');
         } else {
-            receivingMessage.html(md.render(accumulatedMessage));
+            let html = md.render(accumulatedMessage);
+            let d_none = enableDebug ? '' : 'd-none';
+            html = html.replace(/【[0-9:]+†[\w+\.-]+】/g, (match) => `<span class="funciton-debug ${d_none}">${match}</span>`); 
+            receivingMessage.html(html);
             receivingMessage.find('a').attr({ target: '_blank', referrerpolicy: 'origin' });
         }
         if (-1 != text.indexOf('\n')) {
@@ -607,29 +653,28 @@ function removeChatMessageFromUI(messageId) {
  * @param {Element} messageBody - The message body element.
  */
 function copyMessageToClipboard(messageBody) {
-    $('.loader').css('display', 'block'); // Show loader
     const range = document.createRange();
     range.selectNodeContents(messageBody);
     const selection = window.getSelection();
     selection.removeAllRanges();
     selection.addRange(range);
-
     try {
-        document.execCommand('copy'); // Copy to clipboard
-        selection.removeAllRanges();
+        if (navigator.clipboard && messageBody) {
+            // Use Clipboard API where is possible, the fallback is obsoleted call for old browsers
+            navigator.clipboard.writeText(messageBody.textContent);
+        } else {
+            document.execCommand('copy'); // Copy to clipboard
+        }
         showSuccessNotice('Text copied');
     } catch (err) {
         showFailureNotice('Failed to copy text: ', err); // Log error if copy fails
-    } finally {
-        $('.loader').css('display', 'none'); // Hide loader
-    }
+    } 
 }
 
 /**
  * Copies all chat messages currently displayed on the screen to the clipboard.
  */
 function copyAllMessagesToClipboard() {
-    $('.loader').css('display', 'block'); // Show loader
     const messages = $('.chat-message');
     let allMessagesText = '';
 
@@ -646,12 +691,15 @@ function copyAllMessagesToClipboard() {
 
     $tempTextArea.select();
     try {
-        document.execCommand('copy'); // Copy to clipboard
+        if (navigator.clipboard && allMessagesText) {
+            // Use Clipboard API where is possible, the fallback is obsoleted call for old browsers
+            navigator.clipboard.writeText(allMessagesText);
+        } else {
+            document.execCommand('copy'); // Copy to clipboard
+        }
         showSuccessNotice('All messages copied')
     } catch (err) {
         showFailureNotice('Failed to copy text: ', err); // Log error if copy fails
-    } finally {
-        $('.loader').css('display', 'none'); // Hide loader
     }
     $tempTextArea.remove(); // Remove temporary textarea
 }
@@ -882,7 +930,12 @@ async function renameChat(thread_id, new_name) {
 
         // Check if the response status is not OK (200)
         if (!resp.ok || resp.status != 200) {
-            showFailureNotice('Rename failed: ' + resp.statusText); // Alert if renaming failed
+            try {
+                const { error, message } = await resp.json();
+                showFailureNotice(`Rename failed: ${error}:${message}`);
+            } catch {
+                showFailureNotice('Rename failed: ' + resp.statusText); // Alert if renaming failed
+            }
         }
     } catch (e) {
         showFailureNotice('Rename failed: ' + e); // Alert if there was an error during the request
@@ -896,11 +949,6 @@ async function renameChat(thread_id, new_name) {
  * @param {string} [message_id=null] - The ID of the message (optional).
  */
 async function copyLinkToClipboard(thread_id, message_id = null) {
-    var tw = '';
-    if (animate_session > 0) {
-      tw = '&t='+animate_session;
-    }
-
     $('.loader').css('display', 'block'); // Show loader
     if (typeof ClipboardItem != 'undefined') {
         const clipboardItem = new ClipboardItem({ 'text/plain': getPlink(thread_id, message_id).then((url) => {
@@ -910,7 +958,7 @@ async function copyLinkToClipboard(thread_id, message_id = null) {
                 })
             }
             return new Promise(async (resolve) => {
-                resolve(new Blob([url + tw],{ type:'text/plain' }))
+                resolve(new Blob([url],{ type:'text/plain' }))
             })
         }),
         });
@@ -959,8 +1007,8 @@ async function getPlink(thread_id, message_id = null) {
             let res_id = await resp.text();
             let linkUrl = new URL(pageUrl.toString());
             linkUrl.search = 'share_id=' + res_id;
-            if (sharedSessionAnimation > 0) {
-                linkUrl.search += '&t='+sharedSessionAnimation;
+            if (animate_session > 0) {
+                linkUrl.search += '&t='+animate_session;
             }
             linkUrl.hash = hash;
             return linkUrl.toString();
@@ -992,8 +1040,9 @@ async function loadShare(obj_id) {
         if (!r.ok) {
             return r.json().then(e => {
                 throw new Error(`${e.error}: ${e.message}`);
+            }).catch(() => {
+                throw new Error(r.statusText);
             });
-            throw new Error(r.statusText);
         }
         return r.json();
     }).then((data) => {
@@ -1017,8 +1066,9 @@ async function getVectorStoreFiles(id) {
         if (!r.ok) {
             return r.json().then(e => {
                 throw new Error(`${e.error}: ${e.message}`);
+            }).catch(() => {
+                throw new Error(r.statusText);
             });
-            throw new Error(r.statusText);
         }
         return r.json();
     }).then((data) => {
@@ -1051,15 +1101,16 @@ async function getVectorStore(id) {
         if (!r.ok) {
             return r.json().then(e => {
                 throw new Error(`${e.error}: ${e.message}`);
+            }).catch(() => {
+                throw new Error(r.statusText);
             });
-            throw new Error(r.statusText);
         }
         return r.json();
     }).then((data) => {
         vectorStoresCache.push(data);
         return data;
     }).catch((e) => {
-        showFailureNotice('Loading messages failed: ' + e);
+        showFailureNotice('Vector store lookup failed: ' + e);
         return undefined;
     });
     $('.loader').hide(); // Hide loader
@@ -1179,7 +1230,7 @@ async function setAssistant(assistant_id, initFunctionsList = true) {
     $('.assistants-dropdown-menu').hide();
     $('#assistant-name').val(assistant_name);
     $('.assistant-id').text(assistant_id);
-    $('#instructions').text(instructions);
+    $('#instructions').val(instructions);
     $(".assistants-dropdown-menu").hide();
 
     setParameters(item);
@@ -1202,7 +1253,7 @@ async function setAssistant(assistant_id, initFunctionsList = true) {
     $('#vs_id').val('');
     if (vectorStores && vectorStores.length > 0) {
         const vs = await getVectorStore(vectorStores[0]);
-        $vs.append($(`<div class="vector-store-item"><div>${vs?.name}</div><div class="small">${vs?.id}</div></div>`));
+        $vs.append($(`<div class="vector-store-item"><div>${vs?.name || "Untitled store"}</div><div class="small">${vs?.id}</div></div>`));
         $('#vs_id').val(vs.id);
     } 
 }
@@ -1247,8 +1298,8 @@ function setFunctions(tools) {
                 const $functionItem = $(`
                     <div class="function-item">
                         <img src="svg/function.svg" alt="Function Icon" class="function-icon">
-                        <span>${funcName}</span>
                         <input type="checkbox" class="function-checkbox" id="${funcName}-checkbox" data-function-id="${funcName}" checked>
+                        <label for="${funcName}-checkbox">${funcName}</label>
                     </div>
                 `);
                 $functionsList.append($functionItem);
@@ -1423,6 +1474,30 @@ async function saveAssistantConfiguration() {
     }
 }
 
+async function assistantUnpublish(assistantId) {
+    let url = new URL('/chat/api/assistants', httpBase); // Create URL for the API call
+    let params = new URLSearchParams(url.search);
+    params.append('apiKey', apiKey || '');
+    params.append('assistant_id', assistantId);
+    params.append('published', 0);
+    url.search = params.toString();
+    $('.loader').show();
+    rc = await authClient.fetch(url.toString(), { method: 'POST', body: '{}' })
+        .then((r) => { 
+            if (r.ok) {
+                return r.json();
+            } else {
+                throw new Error (r.statusText);
+            }
+        })
+        .then(() => { return true }).catch((e) => {
+            showFailureNotice(e.message)
+            return false;
+        });
+    $('.loader').hide();
+    return rc;
+}
+
 /**
  * Clones the current assistant configuration.
  * 
@@ -1473,7 +1548,7 @@ async function deleteAssistant(assistant_id) {
 }
 
 function loadModels() {
-    fetch(new URL('/chat/api/getModels', httpBase))
+    fetch(new URL('/chat/api/getModels?filter=gpt*', httpBase))
         .then(resp => resp.ok ? resp.json() : Promise.reject(resp.statusText))
         .then(items => {
             models = items.length > 0 ? items : models;
@@ -1503,7 +1578,7 @@ async function loadFunctions() {
         let params = new URLSearchParams(url.search);
         params.append('asst', 1);
         url.search = params.toString();
-        const resp = await fetch (url.toString());
+        const resp = await authClient.fetch (url.toString());
         if (resp.status === 200) {
             availableFunctions = await resp.json();
             let $funcs = $('#function-input');
@@ -1511,9 +1586,9 @@ async function loadFunctions() {
                 const $functionItem = $(`
                     <div class="function-item">
                         <img src="svg/function.svg" alt="Function Icon" class="function-icon">
-                        <label for="fn-cb-${fn.name}">${fn.title}</label>
                         <input type="checkbox" id="fn-cb-${fn.name}" class="function-checkbox" 
                         data-function-id="${fn.name}" data-function-name="${fn.function}">
+                        <label for="fn-cb-${fn.name}">${fn.title}</label>
                     </div>
                 `);
                 $funcs.append($functionItem);

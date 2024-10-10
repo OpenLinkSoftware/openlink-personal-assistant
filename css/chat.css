@@ -655,11 +655,11 @@ h2 {
 
 .loader {
   display: none;
-  width: calc(100% + 2 * var(--textbox-container-margin-horizontal)); /* Ensure the loader spans the full width including horizontal margin */
+  width: 95%;
   height: 7px;
   position: absolute; /* Position it absolutely within the textbox-container */
-  top: calc(-1 * var(--chat-window-margin-vertical)); /* Adjust the top position to ignore the container's vertical margin */
-  left: calc(-1 * var(--textbox-container-margin-horizontal)); /* Adjust the left position to ignore the container's horizontal margin */
+  top: calc(0.5 * var(--chat-window-margin-vertical)); /* Adjust the top position to ignore the container's vertical margin */
+  left: calc(0.5 * var(--textbox-container-margin-horizontal)); /* Adjust the left position to ignore the container's horizontal margin */
   overflow: hidden;
   background-color: #f4f4f4;
   border-radius: 20px;
@@ -752,6 +752,7 @@ h2 {
 }
 
 .user-input-wrapper {
+  position: relative;
   grid-column: 2;
   grid-row: 2;
   padding: var(--chat-window-margin-vertical) var(--textbox-container-margin-horizontal);
@@ -831,7 +832,7 @@ div.nano_start, div.nano_end {
   border-radius: 10px;
   padding: 16px;
   position: absolute;
-  z-index: 1000;
+  z-index: 9999;
   left: 50%;
   transform: translateX(-50%);
   top: 10px;
@@ -1058,4 +1059,11 @@ div.nano_start, div.nano_end {
   background-color: #199ddb;
   color: white;
   display: none;
+}
+
+.search-input {
+    background-repeat: no-repeat;
+    background-image: url(../svg/filter-circle.svg);
+    background-position-y: center;
+    text-indent: 6px;
 }
