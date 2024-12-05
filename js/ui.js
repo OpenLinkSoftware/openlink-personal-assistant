@@ -18,9 +18,10 @@ function initUI() {
     // TODO: clean this section
     document.getElementById('save-assistant-button').addEventListener('click', saveAssistantConfiguration);
     // document.getElementById('new-assistant').addEventListener('click', clearAssistant);
-    document.getElementById('clone-assistant-button').addEventListener('click', cloneAssistant);
+    //document.getElementById('clone-assistant-button').addEventListener('click', cloneAssistant);
 
     initThreadsDropdown();
+    initSearch();
     initAssistantsDropdown();
     initModelsDropdown();
     initFileSearchDropdown();
@@ -35,9 +36,23 @@ function initUI() {
     initTopP();
     initMaxTokens();
     initMaxThreads();
-    initSessionReplaySpeed();
+    initMaxMessages();
     initShareSessionReplaySpeed();
+
+    $('#assistant-publish').on('click', async function(e) {
+        const thisAssistant = assistants.find(item => item.id === currentAssistant);
+        const published = thisAssistant?.metadata?.published === 'true';
+        if(published && !$(this).is(':checked')) {
+            let rc = false;
+            if (rc = confirm("The assistant will be un-published, please confirm.")) {
+                rc = await assistantUnpublish(currentAssistant);
+            } 
+            $(this).prop('checked', !rc);
+        }
+    });
+
     $('#enable_debug').on('click', function(e) {
+        enableDebug = $(this).is(':checked');
         $('.funciton-debug').toggleClass('d-none', !e.target.checked);
     });
 
@@ -157,6 +172,24 @@ function initThreadsDropdown() {
     });
 }
 
+function initSearch() {
+    $('.search-input').on('keyup', function(e) {
+        const word = e.target.value.toUpperCase();
+        $('.threads-dropdown-item').removeClass('d-none');
+        if (!word.length) {
+            $(".threads-dropdown").find(".threads-dropdown-menu").hide();
+            return;
+        }
+        $('.threads-dropdown-item').each(function(index){
+            $span = $(this).find('.threads-dropdown-item-text');
+            if (-1 == $span.text().toUpperCase().indexOf(word)) {
+                $(this).addClass('d-none');
+            }
+        });
+        $(".threads-dropdown").find(".threads-dropdown-menu").show();
+    });
+}
+
 /**
  * Assistants dropdown functionality.
  */
@@ -230,7 +263,7 @@ function initApiKeyModal() {
         if (key) {
             apiKey = key;
             localStorage.setItem('openlinksw.com:opal:gpt-api-key', key);
-            checkResumeThread().then(() => { loadAssistants(); }).then(() => { loadConversation(currentThread); });
+            checkResumeThread().then(loadAssistants).then(() => loadConversation(currentThread));
             $apiKeyModal.hide();
         } else showFailureNotice("Please enter a valid API key.");
     });
@@ -468,20 +501,28 @@ function initMaxThreads() {
     });
 }
 
-/**
- * Initializes the session replay speed input field.
- */
-function initSessionReplaySpeed() {
-    if (sharedItem.length && Number.isFinite(sharedSessionAnimation)) {
-        $('#animation_speed_in').val(sharedSessionAnimation);
-        animate_session = sharedSessionAnimation;
-    }
+function initMaxMessages() {
+    const minMaxmessages = parseFloat($('#max_messages_in').attr('min'));
+    const maxMaxmessages = parseFloat($('#max_messages_in').attr('max'));
+    // Function to track the max_messages value
+    const trackMaxmessages = (value) => {
+        max_messages = parseInt(value, 10);
+    };
 
-    animate_session = $('#animation_speed_in').val()
-
-    $('#animation_speed_in').on('input', function() {
+    // Update input field when slider changes
+    $('#max_messages_in').on('input', function() {
         const value = $(this).val();
-        animate_session = parseInt(value, 10);
+        $('#max_messages').val(value);
+        trackMaxmessages(value);
+    });
+
+    // Update slider when input field changes
+    $('#max_messages').on('input', function() {
+        const value = $(this).val();
+        if (value >= minMaxmessages) {
+            $('#max_messages_in').val(value);
+            trackMaxmessages(value);
+        }
     });
 }
 
@@ -490,12 +531,12 @@ function initSessionReplaySpeed() {
  */
 function initShareSessionReplaySpeed() {
     const maxAnimationSpeed = parseFloat($('#share_animation_speed_in').attr('max'));
-    sharedSessionAnimation = Math.min(sharedSessionAnimation, maxAnimationSpeed);
-    $('#share_animation_speed_in').val(sharedSessionAnimation)
+    animate_session = Math.min(animate_session, maxAnimationSpeed);
+    $('#share_animation_speed_in').val(animate_session)
 
     $('#share_animation_speed_in').on('input', function() {
         const value = $(this).val();
-        sharedSessionAnimation = parseInt(value, 10);
+        animate_session = parseInt(value, 10);
     });
 }
 

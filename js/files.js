@@ -108,7 +108,14 @@ async function storeFile(thread_id, name, type, blob) {
     try {
         // Make the API request to upload the file
         const response = await authClient.fetch(url.toString(), { method: 'POST', body: formData });
-        if (!response.ok) throw new Error(response.statusText);
+        if (!response.ok) {
+            try {
+                const { error, message } = await response.json();
+                showFailureNotice(`${error}:${message}`);
+            } catch {
+                showFailureNotice(response.statusText); // Alert if renaming failed
+            }
+        }
         // Retrieve the file ID from the response
         const file_id = await response.text();
         showSuccessNotice(`${name} uploaded successfully`);
@@ -145,6 +152,9 @@ async function deleteFile(thread_id, file_id, name) {
     $('.loader').show();
     await authClient.fetch(url.toString(), { method:'DELETE' }).then((r) => {
         if (r.status != 204) {
+            return r.json().then(e => {
+                throw new Error(`${e.error}: ${e.message}`);
+            });
             throw new Error (r.statusText);
         }
         showSuccessNotice(`${name} successfully deleted`);
@@ -236,14 +246,18 @@ async function createVectorStore(files) {
     const request = {
         name: prefix + ' Vector Store',
         file_ids: files,
-        expiration: 7,
+        expiration: null,
     };
     $('.loader').show();
     const vs_id = await authClient.fetch(url.toString(),
         { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(request) }).
         then(r => {
             if (!r.ok) {
-                throw new Error ('Create Vector Store failed:' + r.statusText);
+                return r.json().then(e => {
+                    throw new Error(`${e.error}: ${e.message}`);
+                }).catch(() => {
+                    throw new Error ('Failed to create Vector Store:' + r.statusText);
+                });
             }
             return r.text();
         }).then((id) => { return id; }).catch((e) => {
@@ -271,7 +285,11 @@ async function updateVectorStore(vs_id, files) {
         { method: 'PUT', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(request) }).
         then(r => {
             if (!r.ok) {
-                throw new Error ('Create Vector Store failed:' + r.statusText);
+                return r.json().then(e => {
+                    throw new Error(`${e.error}: ${e.message}`);
+                }).catch(() => {
+                    throw new Error ('Failed to create Vector Store:' + r.statusText);
+                });
             }
             return r.text();
         }).then((id) => { return id; }).catch((e) => {
@@ -331,13 +349,65 @@ async function showVectorStoreFiles() {
     $('#vs-files tbody').empty();
     if (vs_id.length) {
         $('#vs-spinner').show();
-        const files = await getVectorStoreFiles(vs_id);
+        const fs = await getVectorStoreFiles(vs_id);
+        const files = await resolveFiles(fs?.data);
         $('#vs-spinner').hide();
-        files?.data?.forEach(file => {
-            addVectorStoreItem({id: file.id, bytes: file.usage_bytes});
+        files.forEach(file => {
+            addVectorStoreItem({id: file.id, name: file.filename, bytes: file.usage_bytes});
         });
     }
 }
+
+/**
+* Resolve File names by ID, look at cache, and if not present, fetch from backend
+*/
+async function resolveFiles(files) {
+    let url = new URL('/chat/api/files', httpBase);
+    let params = new URLSearchParams(url.search);
+    let missing = false;
+    if (!files || !files.length) {
+        return [];
+    }
+    files.forEach(f => {
+        if (!fileIdsCache.find(cf => cf.id === f.id)) {
+            params.append('file_ids[]', f.id);
+            missing = true;
+        }
+    });
+    params.append('apiKey', apiKey || '');
+    url.search = params.toString();
+    if (missing) {
+        $('.loader').show();
+        const fs = await authClient.fetch (url.toString()).then((r) => {
+            if (!r.ok) {
+                if (404 == r.status) {
+                    return [];
+                }
+                return r.json().then(e => {
+                    throw new Error(`${e.error}: ${e.message}`);
+                }).catch(() => {
+                    throw new Error(r.statusText);
+                });
+            }
+            return r.json();
+        }).then((data) => {
+            return data;
+        }).catch((e) => {
+            showFailureNotice('Resolve files failed: ' + e);
+        });
+        $('.loader').hide();
+        fileIdsCache = fileIdsCache.concat(fs);
+    }
+    const res = files.map(obj => {
+        const f = fileIdsCache.find(o => o.id === obj.id);
+        return {
+            ...obj,
+            filename: f ? f.filename : null,
+        };
+    });
+    return res;
+}
+
 
 /**
 * UI helper to add tr/td for vector store files list
@@ -346,7 +416,7 @@ async function showVectorStoreFiles() {
 function addVectorStoreItem(file) {
     const $fileItem = $(`
                 <tr id="vsf-${file.id}">
-                    <td>${file.id}</td>
+                    <td>${file.name || file.id}</td>
                     <td>${formatFileSize(file.bytes)}</td>
                     <td><button class="file-upload-delete">X</button></td>
                 </tr>

@@ -322,7 +322,7 @@ input:checked + .slider:before {
     align-items: center;
 }
 
-.field#temperature-field, .field#top-p-field, .field#max-tokens-field, .field#max-threads-field {
+.field#temperature-field, .field#top-p-field, .field#max-tokens-field, .field#max-threads-field, .field#max-messages-field {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -330,8 +330,8 @@ input:checked + .slider:before {
 }
 
 .params {
-    width: 50px;
-    text-align: center;
+    width: 60px;
+    text-align: right;
     padding: 5px;
 }
 
@@ -358,7 +358,7 @@ input:checked + .slider:before {
 }
 
 .function-checkbox {
-    margin-left: auto;
+    margin-right: 10px;
 }
 
 /* ============================== Model Dropdown ============================== */
@@ -493,3 +493,6 @@ input:checked + .slider:before {
   animation: spin .8s linear infinite;
 }
 
+.tooltip {
+    z-index: 99999;
+}
