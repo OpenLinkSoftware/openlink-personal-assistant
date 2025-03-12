@@ -1571,7 +1571,7 @@ async function deleteAssistant(assistant_id) {
 }
 
 function loadModels() {
-    fetch(new URL('/chat/api/getModels?filter=gpt*', httpBase))
+    fetch(new URL('/chat/api/getModels?provider=openai', httpBase))
         .then(resp => resp.ok ? resp.json() : Promise.reject(resp.statusText))
         .then(items => {
             models = items.length > 0 ? items : models;
