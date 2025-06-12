@@ -35,8 +35,13 @@
 <ddls>
   <sql purpose="post-install">
     <![CDATA[
-          DB.DBA.VHOST_REMOVE (lpath=>'/assist-metal');
-          DB.DBA.VHOST_DEFINE (lpath=>'/assist-metal', ppath=>'$BASE_PATH$/opal_assistant_skin/', is_dav=>$ISDAV$, def_page=>'index.html');
+        DB.DBA.VHOST_REMOVE (vhost=>'*ini*', lhost=>'*ini*', lpath=>'/assist-metal');
+        DB.DBA.VHOST_REMOVE (vhost=>'*sslini*', lhost=>'*sslini*', lpath=>'/assist-metal');
+
+        DB.DBA.VHOST_DEFINE (vhost=>'*ini*', lhost=>'*ini*', lpath=>'/assist-metal',
+            ppath=>'$BASE_PATH$/opal_assistant_skin/', is_dav=>$ISDAV$, def_page=>'index.html');
+        DB.DBA.VHOST_DEFINE (vhost=>'*sslini*', lhost=>'*sslini*', lpath=>'/assist-metal',
+            ppath=>'$BASE_PATH$/opal_assistant_skin/', is_dav=>$ISDAV$, def_page=>'index.html');
     ]]>
   </sql>
   <sql purpose='pre-uninstall'>
