@@ -1247,6 +1247,7 @@ async function setAssistant(assistant_id, initFunctionsList = true) {
         setFunctions(item.tools);
     }
     $('#assistant-publish').prop('checked', 'true' === item.metadata?.published); // Note: this is a string as meta is all strings
+    $('#assistant-restricted').prop('checked', 'true' === item.metadata?.restricted); // Note: this is a string as meta is all strings
     setModel(item.model);
     const $fs = $('#file-search');
     const $vs = $('.vector-store');
@@ -1462,6 +1463,7 @@ async function saveAssistantConfiguration() {
         functions: sqlFunctions,
         file_ids: file_ids,
         publish: $('#assistant-publish').is(':checked'),
+        restricted: $('#assistant-restricted').is(':checked'),
         vector_store_id: vector_store_id,
     };
 
